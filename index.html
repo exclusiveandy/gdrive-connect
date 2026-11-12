@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Drive File Converter automates file conversion between designated Google Drive folders using a GitHub Actions workflow.">
+  <meta name="theme-color" content="#14213d">
+  <title>Drive File Converter</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#596579; --blue:#3157d5; --line:#e5eaf2; }
+    * { box-sizing:border-box; }
+    body { margin:0; font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#f5f7fb; }
+    header { background:linear-gradient(135deg,#14213d,#263f77); color:white; padding:72px 24px 64px; }
+    .wrap { width:min(960px,100% - 40px); margin:auto; }
+    .eyebrow { text-transform:uppercase; letter-spacing:.14em; font-size:.78rem; font-weight:700; opacity:.8; }
+    h1 { margin:12px 0; font-size:clamp(2.2rem,6vw,3.7rem); line-height:1.1; letter-spacing:-.04em; }
+    header p { max-width:680px; color:#e0e8ff; font-size:1.12rem; margin:18px 0 0; }
+    main { padding:42px 0 64px; }
+    section { background:white; border:1px solid var(--line); border-radius:18px; padding:28px; margin:0 0 18px; box-shadow:0 8px 28px rgba(23,32,51,.04); }
+    h2 { margin:0 0 12px; font-size:1.35rem; }
+    p { margin:0 0 12px; color:var(--muted); }
+    p:last-child { margin-bottom:0; }
+    .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-top:20px; }
+    .step { padding:18px; border:1px solid var(--line); border-radius:12px; }
+    .step strong { display:block; color:var(--ink); margin-bottom:5px; }
+    .number { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:#edf1ff; color:var(--blue); font-weight:800; margin-bottom:10px; }
+    a { color:var(--blue); }
+    footer { padding:24px; text-align:center; color:#687386; font-size:.9rem; }
+    .links { display:flex; flex-wrap:wrap; gap:18px; margin-top:18px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <div class="eyebrow">Automation project</div>
+      <h1>Drive File Converter</h1>
+      <p>A simple automation that converts files from a designated Google Drive source folder into a requested format and saves the converted files to a designated Google Drive destination folder.</p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>Project overview</h2>
+      <p>Drive File Converter is designed to reduce repetitive file-conversion work. A GitHub Actions workflow runs the conversion process, retrieves the files selected for processing from Google Drive, converts them according to the configured rules, and places the resulting files in a separate destination folder in Google Drive.</p>
+      <p>The project is intended for personal or authorized business workflows. It does not provide a public file-hosting service or make users' Drive files publicly accessible.</p>
+    </section>
+
+    <section>
+      <h2>How it works</h2>
+      <div class="steps">
+        <div class="step"><span class="number">1</span><strong>Read source files</strong><p>The workflow accesses files in the configured Google Drive source folder.</p></div>
+        <div class="step"><span class="number">2</span><strong>Convert files</strong><p>The workflow processes each eligible file and converts it to the configured output format.</p></div>
+        <div class="step"><span class="number">3</span><strong>Save results</strong><p>Converted files are uploaded to the configured Google Drive destination folder.</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Google Drive access</h2>
+      <p>When Google authorization is enabled, the application requests only the Google Drive permissions needed for its configured workflow. Files are accessed to perform the requested conversion and save the resulting output. The application should not request broader Drive access than the workflow requires.</p>
+    </section>
+
+    <section>
+      <h2>Use and support</h2>
+      <p>This project is provided for its configured automation purpose. For questions about the project or its handling of Google user data, contact the project owner using the support contact published with this application.</p>
+      <div class="links">
+        <a href="privacy-policy.html">Privacy Policy</a>
+        <a href="https://github.com/">GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>© <span id="year">2026</span> Drive File Converter. All rights reserved.</footer>
+</body>
+</html>
