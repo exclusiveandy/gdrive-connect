@@ -1,4 +1,5 @@
 name: Convert Drive files
+run-name: Convert ${{ inputs.job_id || 'manual' }} (${{ inputs.conversion }})
 
 on:
   workflow_dispatch:
@@ -20,6 +21,11 @@ on:
           - wav-to-mp3
           - mp3-to-wav
           - mov-to-mp4
+      job_id:
+        description: "Job ID (set by the web page; leave empty for manual runs)"
+        required: false
+        default: ""
+        type: string
       delete_originals:
         description: "Move the original files to Trash after converting"
         required: true
@@ -71,4 +77,5 @@ jobs:
           TARGET: ${{ inputs.target_folder }}
           MODE: ${{ inputs.conversion }}
           DELETE_ORIGINALS: ${{ inputs.delete_originals }}
-        run: python convert.py --source "$SOURCE" --target "$TARGET" --mode "$MODE" --delete-originals "$DELETE_ORIGINALS"
+          JOB_ID: ${{ inputs.job_id }}
+        run: python convert.py --source "$SOURCE" --target "$TARGET" --mode "$MODE" --delete-originals "$DELETE_ORIGINALS" --job-id "$JOB_ID"

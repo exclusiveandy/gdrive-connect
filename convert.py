@@ -7,6 +7,7 @@ or as a raw folder ID prefixed with "id:" (e.g. "id:1AbC...").
 """
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -189,8 +190,14 @@ def main():
     p.add_argument("--mode", required=True, choices=MODES)
     p.add_argument("--delete-originals", default="true",
                    help="true/false: trash source files after a successful conversion")
+    p.add_argument("--job-id", default="",
+                   help="only convert files named '<job-id>__*' (used by the web page)")
     args = p.parse_args()
     delete_originals = args.delete_originals.strip().lower() == "true"
+    job_id = args.job_id.strip()
+    if job_id and not re.fullmatch(r"[A-Za-z0-9-]{8,64}", job_id):
+        raise SystemExit("Invalid job id: use 8-64 letters, digits or dashes.")
+    job_prefix = f"{job_id}__" if job_id else ""
 
     exts, converter = MODES[args.mode]
     svc = get_service()
@@ -204,8 +211,15 @@ def main():
         f for f in list_files(svc, source_id)
         if not f["mimeType"].startswith(GOOGLE_NATIVE_PREFIX)
         and f["name"].lower().endswith(exts)
+        and f["name"].startswith(job_prefix)
     ]
-    print(f"Found {len(files)} matching file(s) for '{args.mode}'")
+    scope = f" for job {job_id}" if job_id else ""
+    print(f"Found {len(files)} matching file(s) for '{args.mode}'{scope}")
+    if job_id and not files:
+        raise SystemExit(f"No file for job {job_id} was found in the source folder.")
+
+    # Output names inherit the '<job-id>__' prefix from the input name, so the
+    # web backend can find the result in the target folder by that prefix.
 
     ok, failed = 0, []
     for f in files:

@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Drive File Converter automates file conversion between designated Google Drive folders using a GitHub Actions workflow.">
+  <meta name="description" content="Drive File Converter: upload a file, choose a format, and download the converted result.">
   <meta name="theme-color" content="#14213d">
   <title>Drive File Converter</title>
   <style>
-    :root { color-scheme: light; --ink:#172033; --muted:#596579; --blue:#3157d5; --line:#e5eaf2; }
+    :root { color-scheme: light; --ink:#172033; --muted:#596579; --blue:#3157d5; --line:#e5eaf2; --ok:#1a7f4b; --err:#b42318; }
     * { box-sizing:border-box; }
     body { margin:0; font:16px/1.65 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; color:var(--ink); background:#f5f7fb; }
     header { background:linear-gradient(135deg,#14213d,#263f77); color:white; padding:72px 24px 64px; }
@@ -20,13 +20,39 @@
     h2 { margin:0 0 12px; font-size:1.35rem; }
     p { margin:0 0 12px; color:var(--muted); }
     p:last-child { margin-bottom:0; }
+    a { color:var(--blue); }
     .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:14px; margin-top:20px; }
     .step { padding:18px; border:1px solid var(--line); border-radius:12px; }
     .step strong { display:block; color:var(--ink); margin-bottom:5px; }
     .number { display:inline-grid; place-items:center; width:28px; height:28px; border-radius:50%; background:#edf1ff; color:var(--blue); font-weight:800; margin-bottom:10px; }
-    a { color:var(--blue); }
-    footer { padding:24px; text-align:center; color:#687386; font-size:.9rem; }
     .links { display:flex; flex-wrap:wrap; gap:18px; margin-top:18px; }
+    footer { padding:24px; text-align:center; color:#687386; font-size:.9rem; }
+
+    /* Converter */
+    #drop { border:2px dashed #b9c4dd; border-radius:14px; padding:34px 20px; text-align:center; cursor:pointer; background:#fafbff; transition:.15s; }
+    #drop:hover, #drop.over { border-color:var(--blue); background:#f0f4ff; }
+    #drop strong { color:var(--ink); }
+    #fileInput { display:none; }
+    .row { display:flex; flex-wrap:wrap; gap:14px; margin-top:18px; align-items:flex-end; }
+    .field { flex:1 1 220px; display:flex; flex-direction:column; gap:6px; }
+    label { font-size:.85rem; font-weight:600; color:var(--ink); }
+    select, input[type=password], input[type=text] { font:inherit; padding:10px 12px; border:1px solid #c9d2e3; border-radius:10px; background:white; color:var(--ink); }
+    button { font:inherit; font-weight:700; padding:11px 22px; border:0; border-radius:10px; background:var(--blue); color:white; cursor:pointer; }
+    button:disabled { background:#b6c0dc; cursor:not-allowed; }
+    button.secondary { background:#edf1ff; color:var(--blue); }
+    #fileName { margin-top:14px; font-weight:600; color:var(--ink); word-break:break-all; }
+    #status { margin-top:20px; display:none; }
+    .bar { height:8px; background:#e8edf7; border-radius:99px; overflow:hidden; margin-top:10px; }
+    .bar > div { height:100%; width:0; background:var(--blue); transition:width .2s; }
+    .state { display:flex; gap:10px; align-items:center; font-weight:600; }
+    .dot { width:10px; height:10px; border-radius:50%; background:var(--blue); animation:pulse 1s infinite; }
+    .state.ok .dot { background:var(--ok); animation:none; }
+    .state.err .dot { background:var(--err); animation:none; }
+    .state.err { color:var(--err); }
+    .state.ok { color:var(--ok); }
+    @keyframes pulse { 50% { opacity:.3; } }
+    #notice { display:none; background:#fff6e5; border:1px solid #f1d49b; color:#7a4b00; padding:12px 14px; border-radius:10px; margin-bottom:16px; font-size:.92rem; }
+    .small { font-size:.85rem; }
   </style>
 </head>
 <body>
@@ -34,29 +60,62 @@
     <div class="wrap">
       <div class="eyebrow">Automation project</div>
       <h1>Drive File Converter</h1>
-      <p>A simple automation that converts files from a designated Google Drive source folder into a requested format and saves the converted files to a designated Google Drive destination folder.</p>
+      <p>Upload a file, choose the format you need, and download the converted result. Conversions run in an automated GitHub Actions workflow backed by Google Drive.</p>
     </div>
   </header>
 
   <main class="wrap">
-    <section>
-      <h2>Project overview</h2>
-      <p>Drive File Converter is designed to reduce repetitive file-conversion work. A GitHub Actions workflow runs the conversion process, retrieves the files selected for processing from Google Drive, converts them according to the configured rules, and places the resulting files in a separate destination folder in Google Drive.</p>
-      <p>The project is intended for personal or authorized business workflows. It does not provide a public file-hosting service or make users' Drive files publicly accessible.</p>
+    <section id="converter">
+      <h2>Convert a file</h2>
+      <div id="notice"></div>
+
+      <div id="drop" tabindex="0" role="button" aria-label="Choose a file to upload">
+        <strong>Click to choose a file</strong> or drag and drop it here
+        <p class="small" id="limits" style="margin-top:6px"></p>
+      </div>
+      <input id="fileInput" type="file">
+      <div id="fileName"></div>
+
+      <div class="row">
+        <div class="field">
+          <label for="conversion">Convert to</label>
+          <select id="conversion" disabled><option>Choose a file first</option></select>
+        </div>
+        <div class="field" id="codeField" style="display:none">
+          <label for="code">Access code</label>
+          <input id="code" type="password" autocomplete="off" placeholder="Enter access code">
+        </div>
+        <button id="go" disabled>Convert</button>
+      </div>
+
+      <div id="status" aria-live="polite">
+        <div class="state" id="stateLine"><span class="dot"></span><span id="stateText"></span></div>
+        <div class="bar"><div id="barFill"></div></div>
+        <div class="row" id="result" style="display:none">
+          <button id="download">Download converted file</button>
+          <button id="again" class="secondary">Convert another file</button>
+        </div>
+      </div>
     </section>
 
     <section>
       <h2>How it works</h2>
       <div class="steps">
-        <div class="step"><span class="number">1</span><strong>Read source files</strong><p>The workflow accesses files in the configured Google Drive source folder.</p></div>
-        <div class="step"><span class="number">2</span><strong>Convert files</strong><p>The workflow processes each eligible file and converts it to the configured output format.</p></div>
-        <div class="step"><span class="number">3</span><strong>Save results</strong><p>Converted files are uploaded to the configured Google Drive destination folder.</p></div>
+        <div class="step"><span class="number">1</span><strong>Upload</strong><p>You choose a file and the output format you need.</p></div>
+        <div class="step"><span class="number">2</span><strong>Convert</strong><p>An automated workflow converts the file to the requested format.</p></div>
+        <div class="step"><span class="number">3</span><strong>Download</strong><p>When it finishes, the converted file appears here for you to download.</p></div>
       </div>
     </section>
 
     <section>
+      <h2>Project overview</h2>
+      <p>Drive File Converter reduces repetitive file-conversion work. Files you upload are processed by a GitHub Actions workflow, using a designated Google Drive folder as temporary working storage, and the converted result is returned to you on this page.</p>
+      <p>The project is intended for personal or authorized use. Files are used only to perform the conversion you request. This site does not make anyone's Google Drive files publicly accessible.</p>
+    </section>
+
+    <section>
       <h2>Google Drive access</h2>
-      <p>When Google authorization is enabled, the application requests only the Google Drive permissions needed for its configured workflow. Files are accessed to perform the requested conversion and save the resulting output. The application should not request broader Drive access than the workflow requires.</p>
+      <p>The application requests only the Google Drive permissions needed for its configured workflow: reading files placed in its source folder and saving converted output to its destination folder. It does not request broader access than the workflow requires.</p>
     </section>
 
     <section>
@@ -69,6 +128,171 @@
     </section>
   </main>
 
-  <footer>© <span id="year">2026</span> Drive File Converter. All rights reserved.</footer>
+  <footer>&copy; <span id="year">2026</span> Drive File Converter. All rights reserved.</footer>
+
+  <script>
+    // ================= CONFIG =================
+    // URL of your backend proxy (see notes). It holds the GitHub/Google credentials,
+    // so NO secret ever appears in this page.
+    const API_BASE = "https://YOUR-WORKER.YOUR-SUBDOMAIN.workers.dev";
+    const MAX_MB = 50;               // keep in sync with the backend limit
+    const REQUIRE_ACCESS_CODE = true; // shows an access code box
+    const POLL_MS = 4000;
+    const TIMEOUT_MIN = 15;
+    // Which conversions are offered for each input file extension.
+    const OPTIONS = {
+      png:  [["png-to-jpg", "JPG image"]],
+      jpg:  [["jpg-to-png", "PNG image"]],
+      jpeg: [["jpg-to-png", "PNG image"]],
+      webp: [["webp-to-jpg", "JPG image"]],
+      docx: [["docx-to-pdf", "PDF"]],
+      doc:  [["docx-to-pdf", "PDF"]],
+      pptx: [["pptx-to-pdf", "PDF"]],
+      ppt:  [["pptx-to-pdf", "PDF"]],
+      xlsx: [["xlsx-to-pdf", "PDF"], ["xlsx-to-csv", "CSV"]],
+      xls:  [["xlsx-to-pdf", "PDF"]],
+      csv:  [["csv-to-xlsx", "Excel (XLSX)"]],
+      mp4:  [["mp4-to-mp3", "MP3 audio"]],
+      mkv:  [["mp4-to-mp3", "MP3 audio"]],
+      mov:  [["mov-to-mp4", "MP4 video"], ["mp4-to-mp3", "MP3 audio"]],
+      wav:  [["wav-to-mp3", "MP3 audio"]],
+      mp3:  [["mp3-to-wav", "WAV audio"]]
+    };
+    // ==========================================
+
+    const $ = (id) => document.getElementById(id);
+    const drop = $("drop"), fileInput = $("fileInput"), conversion = $("conversion");
+    const go = $("go"), statusBox = $("status"), stateLine = $("stateLine");
+    const stateText = $("stateText"), barFill = $("barFill"), result = $("result");
+    let file = null, jobId = null, pollTimer = null, busy = false;
+
+    $("year").textContent = new Date().getFullYear();
+    $("limits").textContent = "Max " + MAX_MB + " MB. Supported: " + Object.keys(OPTIONS).join(", ").toUpperCase();
+    if (REQUIRE_ACCESS_CODE) $("codeField").style.display = "";
+    if (API_BASE.includes("YOUR-WORKER")) {
+      const n = $("notice");
+      n.style.display = "block";
+      n.textContent = "Backend not configured yet: set API_BASE in this file to your proxy URL before using the converter.";
+    }
+
+    function setState(text, kind, pct) {
+      statusBox.style.display = "block";
+      stateLine.className = "state" + (kind ? " " + kind : "");
+      stateText.textContent = text;
+      if (pct != null) barFill.style.width = pct + "%";
+    }
+    function headers() {
+      const h = {};
+      if (REQUIRE_ACCESS_CODE) h["X-Access-Code"] = $("code").value;
+      return h;
+    }
+
+    function pickFile(f) {
+      if (!f || busy) return;
+      const ext = (f.name.split(".").pop() || "").toLowerCase();
+      statusBox.style.display = "none";
+      result.style.display = "none";
+      if (!OPTIONS[ext]) { alert("Unsupported file type: ." + ext); return; }
+      if (f.size > MAX_MB * 1024 * 1024) { alert("File is larger than " + MAX_MB + " MB."); return; }
+      file = f;
+      $("fileName").textContent = f.name + " (" + (f.size / 1048576).toFixed(2) + " MB)";
+      conversion.innerHTML = "";
+      OPTIONS[ext].forEach(([value, label]) => {
+        const o = document.createElement("option");
+        o.value = value; o.textContent = label; conversion.appendChild(o);
+      });
+      conversion.disabled = false;
+      go.disabled = false;
+    }
+
+    drop.addEventListener("click", () => fileInput.click());
+    drop.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") fileInput.click(); });
+    fileInput.addEventListener("change", () => pickFile(fileInput.files[0]));
+    ["dragenter", "dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+    ["dragleave", "drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+    drop.addEventListener("drop", e => pickFile(e.dataTransfer.files[0]));
+
+    go.addEventListener("click", () => {
+      if (!file || busy) return;
+      busy = true; go.disabled = true; conversion.disabled = true;
+      result.style.display = "none";
+      setState("Uploading...", "", 0);
+
+      const form = new FormData();
+      form.append("file", file);
+      form.append("conversion", conversion.value);
+
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", API_BASE + "/convert");
+      const h = headers();
+      Object.keys(h).forEach(k => xhr.setRequestHeader(k, h[k]));
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) setState("Uploading... " + Math.round(e.loaded / e.total * 100) + "%", "", e.loaded / e.total * 40);
+      };
+      xhr.onerror = () => fail("Could not reach the server. Check your connection and try again.");
+      xhr.onload = () => {
+        let data = {};
+        try { data = JSON.parse(xhr.responseText); } catch (_) {}
+        if (xhr.status !== 200 || !data.jobId) return fail(data.error || ("Upload failed (" + xhr.status + ")."));
+        jobId = data.jobId;
+        setState("Converting...", "", 50);
+        startPolling();
+      };
+      xhr.send(form);
+    });
+
+    function startPolling() {
+      const started = Date.now();
+      let tick = 0;
+      pollTimer = setInterval(async () => {
+        if (Date.now() - started > TIMEOUT_MIN * 60000) return fail("Timed out waiting for the conversion.");
+        try {
+          const r = await fetch(API_BASE + "/status/" + encodeURIComponent(jobId), { headers: headers() });
+          const d = await r.json();
+          if (d.status === "done") { clearInterval(pollTimer); return done(); }
+          if (d.status === "failed") return fail(d.message || "The conversion failed.");
+          tick++;
+          setState(d.status === "queued" ? "Waiting for the workflow to start..." : "Converting...", "", Math.min(50 + tick * 3, 92));
+        } catch (_) { /* transient network error: keep polling */ }
+      }, POLL_MS);
+    }
+
+    function done() {
+      setState("Done. Your file is ready.", "ok", 100);
+      result.style.display = "flex";
+      busy = false;
+    }
+    function fail(msg) {
+      clearInterval(pollTimer);
+      setState(msg, "err", 0);
+      busy = false; go.disabled = false; conversion.disabled = false;
+    }
+
+    $("download").addEventListener("click", async () => {
+      const btn = $("download");
+      btn.disabled = true;
+      try {
+        const r = await fetch(API_BASE + "/download/" + encodeURIComponent(jobId), { headers: headers() });
+        if (!r.ok) throw new Error("Download failed (" + r.status + ").");
+        let name = "converted-file";
+        const cd = r.headers.get("Content-Disposition") || "";
+        const m = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(cd);
+        if (m) name = decodeURIComponent(m[1]);
+        const url = URL.createObjectURL(await r.blob());
+        const a = document.createElement("a");
+        a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      } catch (e) { alert(e.message); }
+      btn.disabled = false;
+    });
+
+    $("again").addEventListener("click", () => {
+      file = null; jobId = null; fileInput.value = "";
+      $("fileName").textContent = "";
+      conversion.innerHTML = "<option>Choose a file first</option>";
+      conversion.disabled = true; go.disabled = true;
+      statusBox.style.display = "none"; result.style.display = "none";
+    });
+  </script>
 </body>
 </html>
